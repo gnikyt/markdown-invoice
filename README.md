@@ -32,6 +32,22 @@ Options:
  --no-interaction (-n) Do not ask any interactive question.
 ```
 
+Example run:
+
+```bash
+bin/markdown-invoice generate unpaid --output=pdf
+Please choose an invoice in "unpaid"...
+
+1. 2012-01-15-xxxx.md
+2. 2012-01-14-xxx.md
+Which invoice? 2
+
+Generating for invoice "2012-01-14-xxx"...
+
+Invoice generated.
+PDF saved to: output/2012-01-14-xxx.pdf
+```
+
 ## Requirements
 
 - [PHP](http://php.net) 5.4.x
