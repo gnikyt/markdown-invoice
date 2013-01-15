@@ -1,0 +1,116 @@
+#!/usr/bin/env php
+<?php
+
+if ((! @include __DIR__.'/../../../autoload.php') && (! @include __DIR__.'/../vendor/autoload.php')) {
+    die('You must set up the project dependencies, run the following commands:' . PHP_EOL .
+         'curl -s http://getcomposer.org/installer | php' . PHP_EOL .
+         'php composer.phar install' . PHP_EOL
+    );
+}
+
+use Symfony\Component\Console\Application;
+use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Process\Process;
+use dflydev\markdown\MarkdownExtraParser;
+
+$console = new Application;
+$console
+    ->register('generate')
+    ->addArgument(
+        'src',
+        InputArgument::REQUIRED,
+        'Location of invoice; ex: "paid", "unpaid"'
+    )
+    ->addArgument(
+        'invoice',
+        InputArgument::OPTIONAL,
+        'What invoice to generate for?'
+    )
+    ->addOption(
+        'output',
+        null,
+        InputOption::VALUE_OPTIONAL,
+        'Output to format; html or pdf',
+        'html'
+    )
+    ->setDescription('Generates HTML versions of a Markdown Invoice.')
+    ->setCode(function(InputInterface $input, OutputInterface $output) use($console) {
+        $output_format = $input->getOption('output');
+        $invoice       = $input->getArgument('invoice');
+        $invoice_src   = $input->getArgument('src');
+
+        $invoice_dir = __DIR__."/../invoices/{$invoice_src}/";
+        $output_dir  = __DIR__."/../output/";
+        $layout_path = __DIR__.'/../invoices/layout.html';
+
+        if (null === $invoice) {
+            $output->writeln("<comment>Please choose an invoice in \"{$invoice_src}\"...</comment>");
+            $output->writeln('');
+
+            $i     = 1;
+            $files = [];
+            foreach (new DirectoryIterator($invoice_dir) as $file) {
+                if (in_array($file->getExtension(), ['md', 'markdown'])) {
+                    $files[$i] = str_replace(['.md', '.markdown'], '', $file->getBasename());
+                    $output->writeln("<comment>{$i}. ".$file->getBasename());
+                    $i++;
+                }
+            }
+
+            $dialog = $console->getHelperSet()->get('dialog');
+            $which  = $dialog->askAndValidate(
+                $output,
+                'Which invoice? ',
+                function ($answer) use($files) {
+                    if (! array_key_exists($answer, $files)) {
+                        throw new \RunTimeException(
+                            'That invoice was not in the list.'
+                        );
+                    }
+
+                    return $answer;
+                },
+                false
+            );
+            $invoice = $files[$which];
+
+            $output->writeln('');
+        }
+
+        $output->writeln("<comment>Generating for invoice \"{$invoice}\"...</comment>");
+
+        $invoice_path = $invoice_dir.$invoice.'.md';
+        $save_path    = $output_dir.$invoice.'.html';
+
+        if (! file_exists($invoice_path)) {
+            $output->writeln("<error>Invoice \"{$invoice}\" does not seem to exit under \"{$invoice_src}\".</error>");
+            exit;
+        }
+
+        $markdown_parser = new MarkdownExtraParser;
+        $html            = $markdown_parser->transformMarkdown(file_get_contents($invoice_path));
+
+        $layout = str_replace('{{ html }}', $html, file_get_contents($layout_path));
+        file_put_contents($save_path, $layout);
+
+        $output->writeln('');
+        $output->writeln("<info>Invoice generated.</info>");
+
+        if ($output_format ==  'pdf') {
+            $pdf_save_path = substr_replace($save_path, 'pdf', strlen($save_path)-4, 4);
+
+            $process = new Process("wkhtmltopdf {$save_path} {$pdf_save_path}");
+            $process->run();
+            if (! $process->isSuccessful()) {
+                throw new \RuntimeException($process->getErrorOutput());
+            }
+
+            $output->writeln("<info>PDF saved to: {$pdf_save_path}</info>");
+        } else {
+            $output->writeln("<info>HTML saved to: {$save_path}</info>");
+        }
+    });
+$console->run();

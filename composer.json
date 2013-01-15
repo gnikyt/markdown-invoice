@@ -1,0 +1,19 @@
+{
+    "name": "tyler-king/markdown-invoice",
+    "type": "bin",
+    "description": "Generates HTML version of my invoices for clients.",
+    "keywords": ["invoice", "markdown"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Tyler King",
+            "email": "tyler.king@newfie.co"
+        }
+    ],
+    "require": {
+        "dflydev/markdown": "dev-master",
+        "symfony/console": "dev-master",
+	"symfony/process": "dev-master"
+    },
+    "bin": ["bin/markdown-invoice"]
+}
