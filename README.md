@@ -2,6 +2,12 @@
 
 This is a simple Symfony console application that I use to turn Markdown invoices into HTML or PDF.
 
+
+## Setup
+
+Simply create your invoice folders under `invoices/` directory. Example: paid, unpaid, estimates. A recommended file 
+naming format is `[YYYY]-[MM]-[DD]-[project].md` (2013-01-15-github.md).
+
 ## Useage
 
 ```bash
@@ -27,3 +33,4 @@ Options:
 ## Requirements
 
 - [PHP](http://php.net) 5.4.x
+- [wkhtmltopdf](http://code.google.com/p/wkhtmltopdf/)
