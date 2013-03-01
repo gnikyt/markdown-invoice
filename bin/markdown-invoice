@@ -13,6 +13,8 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Finder\Finder;
+use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Process\Process;
 use dflydev\markdown\MarkdownExtraParser;
 
@@ -46,12 +48,15 @@ $console
         $output_dir  = __DIR__."/../output/";
         $layout_path = __DIR__.'/../invoices/layout.html';
 
+        $filesystem = new Filesystem;
+
         if (null === $invoice) {
             $output->writeln('');
 
-            $i     = 0;
-            $files = [];
-            foreach (new DirectoryIterator($invoice_dir) as $file) {
+            $i      = 0;
+            $finder = new Finder;
+            $finder->files()->in($invoice_dir);
+            foreach ($finder as $file) {
                 if (in_array($file->getExtension(), ['md', 'markdown'])) {
                     $files[$i] = str_replace(['.md', '.markdown'], '', $file->getBasename());
                     $i++;
@@ -69,7 +74,7 @@ $console
         $invoice_path = $invoice_dir.$files[$invoice].'.md';
         $save_path    = $output_dir.$files[$invoice].'.html';
 
-        if (! file_exists($invoice_path)) {
+        if (! $filesystem->exists($invoice_path)) {
             $output->writeln("<error>Invoice \"{$files[$invoice]}\" does not seem to exit under \"{$invoice_src}\".</error>");
             exit;
         }
