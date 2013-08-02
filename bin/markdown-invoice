@@ -35,17 +35,25 @@ $console
         'output',
         null,
         InputOption::VALUE_OPTIONAL,
-        'Output to format; html or pdf',
-        'html'
+        'Output to format; HTML or PDF',
+        'pdf'
+    )
+    ->addOption(
+        'out',
+        null,
+        InputOption::VALUE_OPTIONAL,
+        'Output HTML or PDF to what directory (absolute directory path)',
+        null
     )
     ->setDescription('Generates HTML versions of a Markdown Invoice.')
     ->setCode(function(InputInterface $input, OutputInterface $output) use($console) {
         $output_format = $input->getOption('output');
+        $out_path      = $input->getOption('out');
         $invoice       = $input->getArgument('invoice');
         $invoice_src   = $input->getArgument('src');
 
         $invoice_dir = __DIR__."/../invoices/{$invoice_src}/";
-        $output_dir  = __DIR__."/../output/";
+        $output_dir  = $out_path ?: __DIR__."/../output";
         $layout_path = __DIR__.'/../invoices/layout.html';
 
         $filesystem = new Filesystem;
@@ -72,7 +80,7 @@ $console
         $output->writeln("<comment>Generating for invoice \"{$files[$invoice]}\"...</comment>");
 
         $invoice_path = $invoice_dir.$files[$invoice].'.md';
-        $save_path    = $output_dir.$files[$invoice].'.html';
+        $save_path    = $output_dir.'/'.$files[$invoice].'.html';
 
         if (! $filesystem->exists($invoice_path)) {
             $output->writeln("<error>Invoice \"{$files[$invoice]}\" does not seem to exit under \"{$invoice_src}\".</error>");
