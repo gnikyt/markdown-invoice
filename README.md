@@ -5,10 +5,10 @@ This is a simple Symfony console application that I use to turn Markdown invoice
 
 ## Setup
 
-Simply create your invoice folders under `invoices/` directory. Example: paid, unpaid, estimates. A recommended file 
+Simply create your invoice folders under `invoices/` directory. Example: `paid`, `unpaid`, `estimates`. A recommended file 
 naming format is `[YYYY]-[MM]-[DD]-[project].md` (2013-01-15-github.md).
 
-See `sample/` dirctory for an example invoice in Markdown and it's PDF output when generated.
+See `invoices/2013-01-15-sample.md` for an example Markdown invoice. The script uses a template `invoices/layout.html` to give the invoice its layout and styling which you can modify to your needs.
 
 ## Useage
 

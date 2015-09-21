@@ -20,94 +20,100 @@ use dflydev\markdown\MarkdownExtraParser;
 
 $console = new Application;
 $console
-    ->register('generate')
-    ->addArgument(
-        'src',
-        InputArgument::REQUIRED,
-        'Location of invoice; ex: "paid", "unpaid"'
-    )
-    ->addArgument(
-        'invoice',
-        InputArgument::OPTIONAL,
-        'What invoice to generate for?'
-    )
-    ->addOption(
-        'output',
-        null,
-        InputOption::VALUE_OPTIONAL,
-        'Output to format; HTML or PDF',
-        'pdf'
-    )
-    ->addOption(
-        'out',
-        null,
-        InputOption::VALUE_OPTIONAL,
-        'Output HTML or PDF to what directory (absolute directory path)',
-        null
-    )
-    ->setDescription('Generates HTML versions of a Markdown Invoice.')
-    ->setCode(function(InputInterface $input, OutputInterface $output) use($console) {
-        $output_format = $input->getOption('output');
-        $out_path      = $input->getOption('out');
-        $invoice       = $input->getArgument('invoice');
-        $invoice_src   = $input->getArgument('src');
+  ->register('generate')
+  ->addArgument(
+    'src',
+    InputArgument::REQUIRED,
+    'Location of invoice; ex: "paid", "unpaid"'
+  )
+  ->addOption(
+    'format',
+    null,
+    InputOption::VALUE_OPTIONAL,
+    'Output to format; HTML or PDF',
+    'pdf'
+  )
+  ->addOption(
+    'out',
+    null,
+    InputOption::VALUE_OPTIONAL,
+    'Output HTML or PDF to what directory (absolute directory path)',
+    sys_get_temp_dir()
+  )
+  ->addOption(
+    'layout',
+    null,
+    InputOption::VALUE_OPTIONAL,
+    'Output HTML or PDF to what directory (absolute directory path)',
+    __DIR__.'/../invoices/layout.html'
+  )
+  ->setDescription('Generates HTML versions of a Markdown Invoice.')
+  ->setCode(function(InputInterface $input, OutputInterface $output) use($console) {
+      # Grab the arguments passed
+      $args = [
+        'format'  => $input->getOption('format'),
+        'out'     => $input->getOption('out'),
+        'layout'  => $input->getOption('layout'),
+        'src'     => $input->getArgument('src')
+      ];
+      
+      $filesystem  = new Filesystem;
+      $invoice_dir = __DIR__."/../invoices/{$args['src']}/";
 
-        $invoice_dir = __DIR__."/../invoices/{$invoice_src}/";
-        $output_dir  = $out_path ?: __DIR__."/../output";
-        $layout_path = __DIR__.'/../invoices/layout.html';
+      $output->writeln('');
 
-        $filesystem = new Filesystem;
+      $finder = new Finder;
+      $finder->files()->in($invoice_dir);
+      foreach ($finder as $file) {
+        if (in_array($file->getExtension(), ['md', 'markdown'])) {
+          $files[] = str_replace(['.md', '.markdown'], '', $file->getBasename());
+        }
+      }
 
-        if (null === $invoice) {
-            $output->writeln('');
+      # Display the choices of invoices to pick from
+      $dialog  = $console->getHelperSet()->get('dialog');
+      $invoice = $dialog->select($output, 'Invoice number: ', $files, 0);
 
-            $i      = 0;
-            $finder = new Finder;
-            $finder->files()->in($invoice_dir);
-            foreach ($finder as $file) {
-                if (in_array($file->getExtension(), ['md', 'markdown'])) {
-                    $files[$i] = str_replace(['.md', '.markdown'], '', $file->getBasename());
-                    $i++;
-                }
-            }
+      $output->writeln('');
+      $output->writeln("<comment>Generating for invoice \"{$files[$invoice]}\"...</comment>");
 
-            $dialog  = $console->getHelperSet()->get('dialog');
-            $invoice = $dialog->select($output, 'Invoice number: ', $files, 0);
+      # Setup the invoice's absolute path and its saving path
+      $invoice_path = "{$invoice_dir}{$files[$invoice]}.md";
+      $save_path    = "{$args['out']}/{$files[$invoice]}.html";
 
-            $output->writeln('');
+      if (! $filesystem->exists($invoice_path)) {
+        $output->writeln("<error>Invoice \"{$files[$invoice]}\" does not seem to exit under \"{$args['src']}\".</error>");
+        exit;
+      }
+
+      # Open the layout file and paste in the parsed Markdown->HTML inside
+      if (! $filesystem->exists($args['layout'])) {
+        $output->writeln("<error>Layout file does not seem to exit for \"{$args['layout']}\".</error>");
+        exit;
+      }
+      
+      $layout_html = str_replace(
+        '{{ html }}',
+        (new MarkdownExtraParser)->transformMarkdown(file_get_contents($invoice_path)),
+        file_get_contents($args['layout'])
+      );
+      file_put_contents($save_path, $layout_html);
+
+      $output->writeln('');
+      $output->writeln("<info>Invoice compiled to HTML.</info>");
+      $output->writeln("<info>HTML saved to: {$save_path}</info>");
+      
+      if ($args['format'] ==  'pdf') {
+        # Save HTML to PDF if PDF format was chosen
+        $pdf_save_path = substr_replace($save_path, 'pdf', strlen($save_path)-4, 4);
+
+        $process = new Process("wkhtmltopdf {$save_path} {$pdf_save_path}");
+        $process->run();
+        if (! $process->isSuccessful()) {
+          throw new \RuntimeException($process->getErrorOutput());
         }
 
-        $output->writeln("<comment>Generating for invoice \"{$files[$invoice]}\"...</comment>");
-
-        $invoice_path = $invoice_dir.$files[$invoice].'.md';
-        $save_path    = $output_dir.'/'.$files[$invoice].'.html';
-
-        if (! $filesystem->exists($invoice_path)) {
-            $output->writeln("<error>Invoice \"{$files[$invoice]}\" does not seem to exit under \"{$invoice_src}\".</error>");
-            exit;
-        }
-
-        $markdown_parser = new MarkdownExtraParser;
-        $html            = $markdown_parser->transformMarkdown(file_get_contents($invoice_path));
-
-        $layout = str_replace('{{ html }}', $html, file_get_contents($layout_path));
-        file_put_contents($save_path, $layout);
-
-        $output->writeln('');
-        $output->writeln("<info>Invoice generated.</info>");
-
-        if ($output_format ==  'pdf') {
-            $pdf_save_path = substr_replace($save_path, 'pdf', strlen($save_path)-4, 4);
-
-            $process = new Process("wkhtmltopdf {$save_path} {$pdf_save_path}");
-            $process->run();
-            if (! $process->isSuccessful()) {
-                throw new \RuntimeException($process->getErrorOutput());
-            }
-
-            $output->writeln("<info>PDF saved to: {$pdf_save_path}</info>");
-        } else {
-            $output->writeln("<info>HTML saved to: {$save_path}</info>");
-        }
-    });
+        $output->writeln("<info>PDF saved to: {$pdf_save_path}</info>");
+      }
+  });
 $console->run();
