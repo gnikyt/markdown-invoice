@@ -16,7 +16,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Process\Process;
-use dflydev\markdown\MarkdownExtraParser;
+use Michelf\MarkdownExtra;
 
 $console = new Application;
 $console
@@ -56,7 +56,7 @@ $console
         'layout'  => $input->getOption('layout'),
         'src'     => $input->getArgument('src')
       ];
-      
+
       $filesystem  = new Filesystem;
       $invoice_dir = __DIR__."/../invoices/{$args['src']}/";
 
@@ -91,10 +91,10 @@ $console
         $output->writeln("<error>Layout file does not seem to exit for \"{$args['layout']}\".</error>");
         exit;
       }
-      
+
       $layout_html = str_replace(
         '{{ html }}',
-        (new MarkdownExtraParser)->transformMarkdown(file_get_contents($invoice_path)),
+        MarkdownExtra::defaultTransform(file_get_contents($invoice_path)),
         file_get_contents($args['layout'])
       );
       file_put_contents($save_path, $layout_html);
@@ -102,7 +102,7 @@ $console
       $output->writeln('');
       $output->writeln("<info>Invoice compiled to HTML.</info>");
       $output->writeln("<info>HTML saved to: {$save_path}</info>");
-      
+
       if ($args['format'] ==  'pdf') {
         # Save HTML to PDF if PDF format was chosen
         $pdf_save_path = substr_replace($save_path, 'pdf', strlen($save_path)-4, 4);
